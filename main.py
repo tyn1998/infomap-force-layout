@@ -4,6 +4,7 @@ from ogdf_python import *
 from utils import green_print, get_org_files, ensure_dir
 from classic_force_layouts import FM3, FME, FR
 from infomap_force_layouts import InfomapFM3, InfomapFME, InfomapFR
+from ftree import gen_ftree_file, parse_ftree_file, parse_ftree
 from draw_graph import drawSVG
 from save_layout import saveJSON
 
@@ -33,13 +34,18 @@ for org, files in org_files.items():
         GA = ogdf.GraphAttributes(G, ogdf.GraphAttributes.all)
         ogdf.GraphIO.read(GA, G, input_file_path)
 
+        ftree_path = os.path.join(org_output_dir, f"{file_name[:-4]}.ftree")
+        gen_ftree_file(G, GA, ftree_path)
+        rows = parse_ftree_file(ftree_path)
+        ftree = parse_ftree(rows)
+
         layouts = {
-            "FM3": FM3(G, GA),
-            "FME": FME(G, GA),
-            "FR": FR(G, GA),
-            "InfomapFM3": InfomapFM3(G, GA),
-            "InfomapFME": InfomapFME(G, GA),
-            "InfomapFR": InfomapFR(G, GA),
+            "FM3": FM3(GA),
+            "FME": FME(GA),
+            "FR": FR(GA),
+            "InfomapFM3": InfomapFM3(GA, org_output_dir),
+            "InfomapFME": InfomapFME(GA, org_output_dir),
+            "InfomapFR": InfomapFR(GA, org_output_dir),
         }
 
         for layout_name, GA in layouts.items():

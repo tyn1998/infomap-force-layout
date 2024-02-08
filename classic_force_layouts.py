@@ -6,7 +6,7 @@ cppinclude("ogdf/energybased/SpringEmbedderFRExact.h")
 
 
 def gen_layout_wrapper(layout_class):
-    def layout_wrapper(G, GA):
+    def layout_wrapper(GA):
         GA_copy = ogdf.GraphAttributes(GA)
         layout = layout_class()
         layout.call(GA_copy)
