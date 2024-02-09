@@ -3,6 +3,10 @@ from infomap import Infomap
 
 def gen_ftree_file(G, GA, output_ftree_path):
     im = Infomap(ftree=True)
+    for n in G.nodes:
+        node_id = n.index()
+        node_label = GA.label(n).decode('utf-8')
+        im.add_node(node_id, node_label)
     for e in G.edges:
         u = e.source().index()
         v = e.target().index()
@@ -10,6 +14,7 @@ def gen_ftree_file(G, GA, output_ftree_path):
         im.add_link(u, v, weight)
     im.run()
     im.write_flow_tree(output_ftree_path)
+    return im.max_depth
 
 
 def parse_ftree_file(file_path, opts=None):
@@ -117,9 +122,9 @@ def parse_ftree(rows):
 
             modules[row[0]] = {
                 "path": row[0],
-                "flow": row[1],
+                "flow": float(row[1]),  # Convert flow to float
                 "name": row[2],
-                "exitFlow": row[3]
+                "exitFlow": float(row[3])  # Convert exitFlow to float
             }
 
             i += 1
@@ -135,7 +140,7 @@ def parse_ftree(rows):
 
         node = {
             "path": row[0],
-            "flow": row[1],
+            "flow": float(row[1]),  # Convert flow to float
             "name": row[2],
             "node": row[-1]
         }
@@ -174,8 +179,8 @@ def parse_ftree(rows):
 
             link = {
                 "path": row[1],
-                "enterFlow": row[2],
-                "exitFlow": row[3 + enter_flow_offset],
+                "enterFlow": float(row[2]),  # Convert enterFlow to float
+                "exitFlow": float(row[3 + enter_flow_offset]),  # Convert exitFlow to float
                 "numEdges": row[4 + enter_flow_offset],
                 "numChildren": row[5 + enter_flow_offset],
                 "links": []
@@ -194,7 +199,7 @@ def parse_ftree(rows):
             link["links"].append({
                 "source": row[0],
                 "target": row[1],
-                "flow": row[2]
+                "flow": float(row[2])  # Convert flow to float
             })
 
         i += 1
@@ -203,3 +208,76 @@ def parse_ftree(rows):
         result["errors"].append("No link data found!")
 
     return result
+
+
+def build_network_from_ftree(ftree):
+    """
+    Construct a network from ftree data.
+
+    Args:
+    - ftree (dict): The parsed ftree data.
+
+    Returns:
+    - dict: The constructed network.
+    """
+    root = {
+        "id": "root",
+        "name": "root",
+        "children": [],
+        "links": [],
+        "flow": 1.00,
+        "largest": [],
+        "directed": ftree["meta"]["directed"]
+    }
+    tree_data = ftree["data"]["tree"]
+    links_data = ftree["data"]["links"]
+
+    # Create the tree structure
+    for node in links_data:
+        if node["path"] == "root":
+            root["links"] = node["links"]
+        else:
+            parent = root
+            path = node["path"].split(":")
+            for child_id in path:
+                child_node = next((child for child in parent["children"] if child["id"] == child_id), None)
+                if not child_node:
+                    child_node = {
+                        "id": child_id,
+                        "name": child_id,
+                        "children": [],
+                        "links": [],
+                        "flow": 0,
+                        "largest": []
+                    }
+                    parent["children"].append(child_node)
+                parent = child_node
+
+            if "name" in node:
+                parent["name"] = node["name"]
+            parent["enterFlow"] = node["enterFlow"]
+            parent["exitFlow"] = node["exitFlow"]
+            parent["links"] = node["links"]
+
+    # Add the actual nodes
+    for node in tree_data:
+        path = node["path"].split(":")
+        node_id = path.pop()
+        parent = root
+        for child_id in path:
+            parent = next((child for child in parent["children"] if child["id"] == child_id), None)
+
+        child_node = {
+            "id": node_id,
+            "name": node["name"],
+            "flow": node["flow"],
+            "node": node["node"]
+        }
+        parent["children"].append(child_node)
+        parent["flow"] += node["flow"]
+        parent["largest"].append(child_node)
+        parent["largest"].sort(key=lambda x: x["flow"], reverse=True)
+        if len(parent["largest"]) > 4:
+            parent["largest"].pop()
+
+    return root

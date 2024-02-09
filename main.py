@@ -2,9 +2,9 @@ import os
 import argparse
 from ogdf_python import *
 from utils import green_print, get_org_files, ensure_dir
-from classic_force_layouts import FM3, FME, FR
-from infomap_force_layouts import InfomapFM3, InfomapFME, InfomapFR
-from ftree import gen_ftree_file, parse_ftree_file, parse_ftree
+from classic_force_layouts import FM3, FME, FR, SM
+from infomap_force_layouts import InfomapFM3, InfomapFME, InfomapFR, InfomapSM
+from ftree import gen_ftree_file, parse_ftree_file, parse_ftree, build_network_from_ftree
 from draw_graph import drawSVG
 from save_layout import saveJSON
 
@@ -35,21 +35,24 @@ for org, files in org_files.items():
         ogdf.GraphIO.read(GA, G, input_file_path)
 
         ftree_path = os.path.join(org_output_dir, f"{file_name[:-4]}.ftree")
-        gen_ftree_file(G, GA, ftree_path)
+        max_depth = gen_ftree_file(G, GA, ftree_path)
         rows = parse_ftree_file(ftree_path)
         ftree = parse_ftree(rows)
+        flow_network = build_network_from_ftree(ftree)
 
         layouts = {
-            "FM3": FM3(GA),
-            "FME": FME(GA),
-            "FR": FR(GA),
-            "InfomapFM3": InfomapFM3(GA, org_output_dir),
-            "InfomapFME": InfomapFME(GA, org_output_dir),
-            "InfomapFR": InfomapFR(GA, org_output_dir),
+            "FM3": FM3(G, GA),
+            "FME": FME(G, GA),
+            # "FR": FR(G, GA),
+            "SM": SM(G, GA),
+            "InfomapFM3": InfomapFM3(flow_network, max_depth),
+            "InfomapFME": InfomapFME(flow_network, max_depth),
+            # "InfomapFR": InfomapFR(flow_network, max_depth),
+            "InfomapSM": InfomapSM(flow_network, max_depth),
         }
 
-        for layout_name, GA in layouts.items():
-            output_svg_path = os.path.join(org_output_dir, f"{file_name[:-4]}_{layout_name}.png")
+        for layout_name, [G, GA] in layouts.items():
+            output_svg_path = os.path.join(org_output_dir, f"{file_name[:-4]}_{layout_name}.svg")
             drawSVG(G, GA, output_svg_path)
 
             output_json_path = os.path.join(org_output_dir, f"{file_name[:-4]}_{layout_name}.json")
