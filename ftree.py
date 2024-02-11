@@ -14,7 +14,6 @@ def gen_ftree_file(G, GA, output_ftree_path):
         im.add_link(u, v, weight)
     im.run()
     im.write_flow_tree(output_ftree_path)
-    return im.max_depth
 
 
 def parse_ftree_file(file_path, opts=None):
@@ -141,7 +140,7 @@ def parse_ftree(rows):
         node = {
             "path": row[0],
             "flow": float(row[1]),  # Convert flow to float
-            "name": row[2],
+            "name": row[2].strip('"'),
             "node": row[-1]
         }
 
